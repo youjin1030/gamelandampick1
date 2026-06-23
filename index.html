@@ -1,246 +1,213 @@
-import React, { useState, useEffect, useRef } from 'react';
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>교실용 룰렛 뽑기</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white font-sans min-h-screen flex flex-col md:flex-row items-center justify-center p-6 gap-8">
 
-// 룰렛에 사용될 고대비 색상 팔레트
-const COLORS = [
-  "#FF6B6B", "#4ECDC4", "#45B7D1", "#FDCB6E", 
-  "#6C5CE7", "#FF8ED4", "#1DD1A1", "#FF9F43",
-  "#A8E6CF", "#DCEDC1", "#FFAAA5", "#FF8B94"
-];
-
-export default function App() {
-  const canvasRef = useRef(null);
-  const [items, setItems] = useState([]);
-  const [inputText, setInputText] = useState("");
-  const [isSpinning, setIsSpinning] = useState(false);
-  const [result, setResult] = useState(null);
-  
-  // 애니메이션 상태 관리를 위한 Refs
-  const rotationRef = useRef(0);
-  const animationRef = useRef(null);
-
-  // 초기 렌더링 시 로컬 스토리지에서 데이터 불러오기
-  useEffect(() => {
-    const savedItems = localStorage.getItem('rouletteItems');
-    if (savedItems) {
-      const parsedItems = JSON.parse(savedItems);
-      setItems(parsedItems);
-      setInputText(parsedItems.join('\n'));
-    } else {
-      const defaultItems = ["1모둠", "2모둠", "3모둠", "4모둠", "5모둠", "6모둠"];
-      setItems(defaultItems);
-      setInputText(defaultItems.join('\n'));
-    }
-  }, []);
-
-  // 명단 업데이트 핸들러
-  const handleUpdateItems = () => {
-    if (isSpinning) return;
-    const newItems = inputText.split('\n').map(item => item.trim()).filter(item => item !== "");
-    if (newItems.length < 2) {
-      alert("최소 2개 이상의 항목을 입력해주세요.");
-      return;
-    }
-    setItems(newItems);
-    localStorage.setItem('rouletteItems', JSON.stringify(newItems));
-    setResult(null);
-    rotationRef.current = 0; // 명단이 바뀌면 룰렛 초기화
-    drawWheel();
-  };
-
-  // 룰렛 그리기 로직
-  const drawWheel = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const width = canvas.width;
-    const height = canvas.height;
-    const centerX = width / 2;
-    const centerY = height / 2;
-    const radius = Math.min(centerX, centerY) - 20;
-
-    ctx.clearRect(0, 0, width, height);
-
-    if (items.length === 0) return;
-
-    const sliceAngle = (2 * Math.PI) / items.length;
-
-    for (let i = 0; i < items.length; i++) {
-      const startAngle = rotationRef.current + i * sliceAngle;
-      const endAngle = startAngle + sliceAngle;
-
-      // 피자 조각 그리기
-      ctx.beginPath();
-      ctx.moveTo(centerX, centerY);
-      ctx.arc(centerX, centerY, radius, startAngle, endAngle);
-      ctx.closePath();
-      ctx.fillStyle = COLORS[i % COLORS.length];
-      ctx.fill();
-      
-      // 테두리
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = "#1F2937"; // 캔버스 배경색과 맞춤
-      ctx.stroke();
-
-      // 텍스트 그리기
-      ctx.save();
-      ctx.translate(centerX, centerY);
-      ctx.rotate(startAngle + sliceAngle / 2);
-      ctx.textAlign = "right";
-      ctx.fillStyle = "#FFFFFF";
-      ctx.font = `bold ${Math.max(14, 24 - items.length * 0.5)}px sans-serif`; // 항목 수에 따라 폰트 크기 자동 조절
-      
-      // 글자가 너무 길면 자름
-      let text = items[i];
-      if(text.length > 8) text = text.substring(0, 7) + '..';
-      
-      ctx.fillText(text, radius - 20, 8);
-      ctx.restore();
-    }
-
-    // 중심축 점 그리기
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, 15, 0, 2 * Math.PI);
-    ctx.fillStyle = "#374151";
-    ctx.fill();
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = "#F3F4F6";
-    ctx.stroke();
-  };
-
-  // 아이템이나 회전값이 변경될 때마다 캔버스 다시 그리기
-  useEffect(() => {
-    drawWheel();
-  }, [items]);
-
-  // 애니메이션 Easing 함수 (점점 느려지는 효과)
-  const easeOutQuart = (t) => 1 - (--t) * t * t * t;
-
-  // 룰렛 돌리기 실행
-  const spin = () => {
-    if (isSpinning || items.length < 2) return;
-
-    setIsSpinning(true);
-    setResult(null);
-
-    const spinTimeTotal = 4000 + Math.random() * 2000; // 4~6초 랜덤 회전
-    const spinStartTime = performance.now();
-    const startRotation = rotationRef.current;
+  <div class="relative flex flex-col items-center">
     
-    // 추가로 회전할 각도 (최소 5바퀴 + 랜덤 각도)
-    const spinAngleTotal = (Math.PI * 2 * 5) + (Math.random() * Math.PI * 2);
+    <div id="result-overlay" class="hidden absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20 bg-white text-gray-900 px-8 py-4 rounded-2xl shadow-2xl border-4 border-yellow-400 text-center animate-bounce">
+      <p class="text-sm font-bold text-gray-500 mb-1">당첨!</p>
+      <p id="result-text" class="text-4xl font-extrabold text-red-500">결과</p>
+    </div>
 
-    const animate = (currentTime) => {
-      const elapsedTime = currentTime - spinStartTime;
-      
-      if (elapsedTime >= spinTimeTotal) {
-        // 애니메이션 종료
-        setIsSpinning(false);
-        cancelAnimationFrame(animationRef.current);
-        
-        // 최종 결과 계산 로직
-        // 룰렛의 상단(12시 방향, 즉 270도 또는 -90도 위치)에 멈춘 항목을 계산
-        const finalRotation = rotationRef.current % (Math.PI * 2);
-        const sliceAngle = (2 * Math.PI) / items.length;
-        
-        // 화살표가 오른쪽(0도)이 아닌 위쪽(270도/-90도)에 있다고 가정할 때의 보정
-        // 화살표가 오른쪽에 있다면 아래 보정값은 0
-        const pointerOffset = Math.PI * 1.5; // 270도 (12시 방향)
-        
-        let winningAngle = (pointerOffset - finalRotation) % (Math.PI * 2);
-        if (winningAngle < 0) winningAngle += Math.PI * 2;
-        
-        const winningIndex = Math.floor(winningAngle / sliceAngle);
-        setResult(items[winningIndex]);
-        
+    <div class="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-4 z-10">
+      <div class="w-0 h-0 border-l-[15px] border-l-transparent border-r-[15px] border-r-transparent border-t-[30px] border-t-yellow-400 filter drop-shadow-md"></div>
+    </div>
+
+    <div class="bg-gray-800 rounded-full p-4 shadow-[0_0_40px_rgba(0,0,0,0.5)]">
+      <canvas id="roulette-canvas" width="400" height="400" class="rounded-full w-[300px] h-[300px] md:w-[400px] md:h-[400px]"></canvas>
+    </div>
+
+    <button id="spin-btn" class="mt-8 px-12 py-4 rounded-full text-2xl font-black tracking-wider transition-all duration-200 shadow-lg bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-300 hover:to-orange-400 hover:scale-105 active:scale-95 text-gray-900">
+      돌리기! (SPIN)
+    </button>
+  </div>
+
+  <div class="w-full md:w-80 bg-gray-800 p-6 rounded-2xl shadow-xl flex flex-col h-[500px]">
+    <div class="mb-4">
+      <h2 class="text-2xl font-bold text-white flex items-center gap-2">📋 명단 설정</h2>
+      <p class="text-sm text-gray-400 mt-2">학생 이름이나 모둠명을 줄바꿈(엔터)으로 구분해서 입력하세요.</p>
+    </div>
+    
+    <textarea id="item-input" class="flex-1 w-full bg-gray-700 text-white rounded-xl p-4 focus:ring-2 focus:ring-yellow-400 focus:outline-none resize-none font-medium leading-relaxed" placeholder="홍길동&#10;김철수&#10;이영희"></textarea>
+    
+    <button id="update-btn" class="mt-4 w-full py-3 rounded-xl font-bold transition-colors bg-blue-600 hover:bg-blue-500 text-white">
+      명단 적용하기
+    </button>
+  </div>
+
+  <script>
+    // 상태 변수
+    let items = [];
+    let isSpinning = false;
+    let currentRotation = 0;
+    let animationId = null;
+
+    // DOM 요소
+    const canvas = document.getElementById('roulette-canvas');
+    const ctx = canvas.getContext('2d');
+    const itemInput = document.getElementById('item-input');
+    const updateBtn = document.getElementById('update-btn');
+    const spinBtn = document.getElementById('spin-btn');
+    const resultOverlay = document.getElementById('result-overlay');
+    const resultText = document.getElementById('result-text');
+
+    const COLORS = [
+      "#FF6B6B", "#4ECDC4", "#45B7D1", "#FDCB6E", 
+      "#6C5CE7", "#FF8ED4", "#1DD1A1", "#FF9F43",
+      "#A8E6CF", "#DCEDC1", "#FFAAA5", "#FF8B94"
+    ];
+
+    // 초기화 및 로컬 스토리지 로드
+    function init() {
+      const savedItems = localStorage.getItem('rouletteItems');
+      if (savedItems) {
+        items = JSON.parse(savedItems);
+        itemInput.value = items.join('\n');
+      } else {
+        items = ["1모둠", "2모둠", "3모둠", "4모둠", "5모둠", "6모둠"];
+        itemInput.value = items.join('\n');
+      }
+      updateBtn.innerText = `명단 적용하기 (${items.length}명)`;
+      drawWheel();
+    }
+
+    // 명단 업데이트
+    updateBtn.addEventListener('click', () => {
+      if (isSpinning) return;
+      const newItems = itemInput.value.split('\n').map(item => item.trim()).filter(item => item !== "");
+      if (newItems.length < 2) {
+        alert("최소 2개 이상의 항목을 입력해주세요.");
         return;
       }
-
-      // Easing 적용하여 현재 각도 계산
-      const progress = elapsedTime / spinTimeTotal;
-      const easeProgress = easeOutQuart(progress);
-      rotationRef.current = startRotation + (spinAngleTotal * easeProgress);
-
+      items = newItems;
+      localStorage.setItem('rouletteItems', JSON.stringify(items));
+      currentRotation = 0;
+      updateBtn.innerText = `명단 적용하기 (${items.length}명)`;
+      resultOverlay.classList.add('hidden');
       drawWheel();
-      animationRef.current = requestAnimationFrame(animate);
-    };
+    });
 
-    animationRef.current = requestAnimationFrame(animate);
-  };
+    // 룰렛 그리기
+    function drawWheel() {
+      const width = canvas.width;
+      const height = canvas.height;
+      const centerX = width / 2;
+      const centerY = height / 2;
+      const radius = Math.min(centerX, centerY) - 20;
 
-  return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col md:flex-row items-center justify-center p-6 gap-8 font-sans">
-      
-      {/* 왼쪽: 룰렛 캔버스 영역 */}
-      <div className="relative flex flex-col items-center">
-        {/* 당첨 결과 표시 (모달 느낌의 오버레이) */}
-        {result && !isSpinning && (
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20 
-                          bg-white text-gray-900 px-8 py-4 rounded-2xl shadow-2xl 
-                          border-4 border-yellow-400 text-center animate-bounce">
-            <p className="text-sm font-bold text-gray-500 mb-1">당첨!</p>
-            <p className="text-4xl font-extrabold text-red-500">{result}</p>
-          </div>
-        )}
+      ctx.clearRect(0, 0, width, height);
+      if (items.length === 0) return;
 
-        {/* 룰렛 지시선 (화살표 - 12시 방향) */}
-        <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-4 z-10">
-          <div className="w-0 h-0 border-l-[15px] border-l-transparent border-r-[15px] border-r-transparent border-t-[30px] border-t-yellow-400 filter drop-shadow-md"></div>
-        </div>
+      const sliceAngle = (2 * Math.PI) / items.length;
 
-        {/* 캔버스 */}
-        <div className="bg-gray-800 rounded-full p-4 shadow-[0_0_40px_rgba(0,0,0,0.5)]">
-          <canvas 
-            ref={canvasRef} 
-            width={400} 
-            height={400} 
-            className="rounded-full w-[300px] h-[300px] md:w-[400px] md:h-[400px]"
-          />
-        </div>
+      for (let i = 0; i < items.length; i++) {
+        const startAngle = currentRotation + i * sliceAngle;
+        const endAngle = startAngle + sliceAngle;
 
-        {/* 메인 뽑기 버튼 */}
-        <button 
-          onClick={spin}
-          disabled={isSpinning || items.length < 2}
-          className={`mt-8 px-12 py-4 rounded-full text-2xl font-black tracking-wider transition-all duration-200 shadow-lg
-            ${isSpinning 
-              ? 'bg-gray-600 text-gray-400 cursor-not-allowed' 
-              : 'bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-300 hover:to-orange-400 hover:scale-105 active:scale-95 text-gray-900'}
-          `}
-        >
-          {isSpinning ? '두구두구...' : '돌리기! (SPIN)'}
-        </button>
-      </div>
-
-      {/* 오른쪽: 설정 및 데이터 입력 영역 */}
-      <div className="w-full md:w-80 bg-gray-800 p-6 rounded-2xl shadow-xl flex flex-col h-[500px]">
-        <div className="mb-4">
-          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-            📋 명단 설정
-          </h2>
-          <p className="text-sm text-gray-400 mt-2">
-            학생 이름이나 모둠명을 줄바꿈(엔터)으로 구분해서 입력하세요.
-          </p>
-        </div>
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+        ctx.closePath();
+        ctx.fillStyle = COLORS[i % COLORS.length];
+        ctx.fill();
         
-        <textarea
-          className="flex-1 w-full bg-gray-700 text-white rounded-xl p-4 focus:ring-2 focus:ring-yellow-400 focus:outline-none resize-none font-medium leading-relaxed"
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          placeholder="홍길동&#10;김철수&#10;이영희"
-          disabled={isSpinning}
-        />
-        
-        <button 
-          onClick={handleUpdateItems}
-          disabled={isSpinning}
-          className={`mt-4 w-full py-3 rounded-xl font-bold transition-colors
-            ${isSpinning ? 'bg-gray-600 text-gray-400' : 'bg-blue-600 hover:bg-blue-500 text-white'}
-          `}
-        >
-          명단 적용하기 ({items.length}명)
-        </button>
-      </div>
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "#1F2937";
+        ctx.stroke();
 
-    </div>
-  );
-}
+        ctx.save();
+        ctx.translate(centerX, centerY);
+        ctx.rotate(startAngle + sliceAngle / 2);
+        ctx.textAlign = "right";
+        ctx.fillStyle = "#FFFFFF";
+        ctx.font = `bold ${Math.max(14, 24 - items.length * 0.5)}px sans-serif`;
+        
+        let text = items[i];
+        if(text.length > 8) text = text.substring(0, 7) + '..';
+        
+        ctx.fillText(text, radius - 20, 8);
+        ctx.restore();
+      }
+
+      // 중심축
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, 15, 0, 2 * Math.PI);
+      ctx.fillStyle = "#374151";
+      ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "#F3F4F6";
+      ctx.stroke();
+    }
+
+    // Easing 함수
+    const easeOutQuart = (t) => 1 - (--t) * t * t * t;
+
+    // 회전 로직
+    spinBtn.addEventListener('click', () => {
+      if (isSpinning || items.length < 2) return;
+
+      isSpinning = true;
+      resultOverlay.classList.add('hidden');
+      spinBtn.innerText = '두구두구...';
+      spinBtn.classList.replace('from-yellow-400', 'bg-gray-600');
+      spinBtn.classList.replace('to-orange-500', 'bg-gray-600');
+      spinBtn.classList.replace('text-gray-900', 'text-gray-400');
+      spinBtn.classList.add('cursor-not-allowed');
+
+      const spinTimeTotal = 4000 + Math.random() * 2000;
+      const spinStartTime = performance.now();
+      const startRotation = currentRotation;
+      const spinAngleTotal = (Math.PI * 2 * 5) + (Math.random() * Math.PI * 2);
+
+      function animate(currentTime) {
+        const elapsedTime = currentTime - spinStartTime;
+        
+        if (elapsedTime >= spinTimeTotal) {
+          isSpinning = false;
+          cancelAnimationFrame(animationId);
+          
+          spinBtn.innerText = '돌리기! (SPIN)';
+          spinBtn.classList.replace('bg-gray-600', 'from-yellow-400');
+          spinBtn.classList.replace('bg-gray-600', 'to-orange-500');
+          spinBtn.classList.replace('text-gray-400', 'text-gray-900');
+          spinBtn.classList.remove('cursor-not-allowed');
+
+          const finalRotation = currentRotation % (Math.PI * 2);
+          const sliceAngle = (2 * Math.PI) / items.length;
+          const pointerOffset = Math.PI * 1.5; // 12시 방향
+          
+          let winningAngle = (pointerOffset - finalRotation) % (Math.PI * 2);
+          if (winningAngle < 0) winningAngle += Math.PI * 2;
+          
+          const winningIndex = Math.floor(winningAngle / sliceAngle);
+          
+          // 결과 표시
+          resultText.innerText = items[winningIndex];
+          resultOverlay.classList.remove('hidden');
+          
+          return;
+        }
+
+        const progress = elapsedTime / spinTimeTotal;
+        const easeProgress = easeOutQuart(progress);
+        currentRotation = startRotation + (spinAngleTotal * easeProgress);
+
+        drawWheel();
+        animationId = requestAnimationFrame(animate);
+      }
+
+      animationId = requestAnimationFrame(animate);
+    });
+
+    // 시작
+    init();
+
+  </script>
+</body>
+</html>
